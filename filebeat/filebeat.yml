@@ -1,0 +1,40 @@
+# ====================================
+# Filebeat 配置
+# Spring Boot ECS JSON log + Logstash 範例
+# ====================================
+
+filebeat.inputs:
+  - type: filestream               # 使用新的 filestream input（取代舊的 log input）
+    enabled: true                  # 啟用此 input
+    paths:
+      - /app/logs/app.log          # 對應 Spring Boot logs 目錄，容器內路徑
+    parsers:
+      - ndjson: # 解析 Spring Boot ECS JSON log (newline-delimited JSON)
+          overwrite_keys: true     # 允許 JSON key 覆蓋 Filebeat 預設欄位
+          add_error_key: true      # 如果解析失敗，會增加 error.message 方便 debug
+          expand_keys: true        # 將 JSON 展開為多層 ECS 結構化欄位，Kibana 可直接識別 log.level、log.logger、service.name 等
+
+# -------------------------------
+# Filebeat processors
+# -------------------------------
+processors:
+  - add_host_metadata: ~           # 自動補充 host 資訊，例如 hostname、ip
+  - add_cloud_metadata: ~          # 自動補充 cloud provider metadata（AWS/GCP/Azure）
+  - add_docker_metadata: ~         # 若在 Docker container 裡，補充 container metadata
+  - add_kubernetes_metadata: ~     # 若在 Kubernetes 裡，補充 pod / namespace / cluster metadata
+
+# -------------------------------
+# Output to Logstash
+# -------------------------------
+output.logstash:
+  hosts: [ "logstash:5044" ]         # 將解析完成的 ECS log 送到 Logstash
+  # Logstash 可進一步處理並送到 Elasticsearch
+  # log 資料會保留結構化 ECS 欄位，Kibana 可直接使用
+
+# ====================================
+# 說明總結
+# 1. Spring Boot ECS log 產生 JSON，filestream + ndjson parser 解析為結構化欄位
+# 2. processors 自動補充 host/docker/cloud/k8s ECS metadata
+# 3. output.logstash 將資料送到 Logstash，再進 Elasticsearch
+# 4. Kibana 可直接看到完整 ECS 欄位：@timestamp、log.level、log.logger、service.name、message 等
+# ====================================

@@ -10,6 +10,38 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
-
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.1.4
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.1.4
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+  logstash:
+    image: docker.elastic.co/logstash/logstash:9.1.4
+    container_name: logstash
+    ports:
+      - "5044:5044"
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:9.1.4
+    container_name: filebeat
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ${PROJECT_DIR}/logs:/app/logs:ro
+    depends_on:
+      - logstash
 volumes:
   db_data:
+  es_data:
